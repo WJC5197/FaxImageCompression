@@ -8,11 +8,11 @@
 
 using namespace std;
 
-#define WIDTH (faxImg.cols)
-#define HEIGHT (faxImg.rows)
+#define WIDTH (testFaxImg.cols)
+#define HEIGHT (testFaxImg.rows)
 #define ARRLEN 257
 
-cv::Mat testFaxImg = cv::imread("../img/pic10.jpg", 0);
+cv::Mat testFaxImg = cv::imread("../img/pic1.jpg", 0);
 
 // test matrix
 cv::Mat testMat = (cv::Mat_<uchar>(8, 8) << 255, 255, 255, 255, 255, 255, 255, 0,
@@ -141,7 +141,6 @@ vector<bool> idx2Bits(unsigned int idx)
     }
     else if (idx == 182)
     {
-
     }
     return bits;
 }
@@ -151,14 +150,12 @@ void calcRLFreq(cv::Mat &m)
     bool isWhite, isWhitePre, compRes;
     unsigned int cnt;
     freq[256] = 1;
-    // #pragma omp parallel for
     for (int i = 0; i < m.rows; i++)
     {
         isWhite = false, isWhitePre = true, compRes = false;
         cnt = 0;
         freq[0]++;
         freq[182]++;
-        // cout << "i row:" << i <<endl;
         for (int j = 0; j < m.cols; j++)
         {
             isWhite = (m.at<uchar>(i, j) == 255);
@@ -169,7 +166,6 @@ void calcRLFreq(cv::Mat &m)
             }
             else
             {
-                // cout << "cnt: " << cnt << " isWhitePre: " << isWhitePre << endl;
                 if (cnt > 64)
                 {
                     int remain = cnt % 64;
@@ -184,7 +180,6 @@ void calcRLFreq(cv::Mat &m)
             }
             isWhitePre = isWhite;
         }
-        // cout << "cnt: " << cnt << " isWhitePre: " << isWhitePre << endl;
         if (cnt > 64)
         {
             int remain = cnt % 64;
@@ -251,7 +246,7 @@ void cntBits()
 
 void adjustBits()
 {
-    int i = 32, j;
+    int i = 31, j;
     while (1)
     {
         if (bits[i] > 0)
@@ -393,7 +388,7 @@ void preprocess()
 {
     cv::Mat img;
     // #pragma omp parallel for
-    for (int i = 1; i <= 10; i++)
+    for (int i = 1; i <= 3; i++)
     {
         img = cv::imread("../img/pic" + to_string(i) + ".jpg", 0);
         cv::threshold(img, img, 200, 255, cv::THRESH_BINARY);
@@ -444,7 +439,6 @@ vector<bool> encode(const cv::Mat &m)
                         cerr << "idx is: " << idx1 << " " << idx2 << endl;
                         break;
                     }
-                    // cout << "cnt: " << cnt << " isWhitePre: " << isWhitePre << endl;
                     auto tmp = int2Bits(eHuffCode[idx1], eHuffSize[idx1]);
                     output.insert(output.end(), tmp.begin(), tmp.end());
                     tmp = int2Bits(eHuffCode[idx2], eHuffSize[idx2]);
@@ -460,7 +454,6 @@ vector<bool> encode(const cv::Mat &m)
                         cerr << "idx is: " << idx1 << endl;
                         break;
                     }
-                    // cout << "cnt: " << cnt << " isWhitePre: " << isWhitePre << endl;
                     auto tmp = int2Bits(eHuffCode[idx1], eHuffSize[idx1]);
                     output.insert(output.end(), tmp.begin(), tmp.end());
                 }
@@ -481,7 +474,6 @@ vector<bool> encode(const cv::Mat &m)
                 cerr << "idx is: " << idx1 << " " << idx2 << endl;
                 break;
             }
-            // cout << "cnt: " << cnt << " isWhitePre: " << isWhitePre << endl;
             auto tmp = int2Bits(eHuffCode[idx1], eHuffSize[idx1]);
             output.insert(output.end(), tmp.begin(), tmp.end());
             tmp = int2Bits(eHuffCode[idx2], eHuffSize[idx2]);
@@ -497,7 +489,6 @@ vector<bool> encode(const cv::Mat &m)
                 cerr << "idx is: " << idx1 << endl;
                 break;
             }
-            // cout << "cnt: " << cnt << " isWhitePre: " << isWhitePre << endl;
             auto tmp = int2Bits(eHuffCode[idx1], eHuffSize[idx1]);
             output.insert(output.end(), tmp.begin(), tmp.end());
         }
@@ -550,7 +541,7 @@ string filtrateZero(int *arr, int size)
     return res;
 }
 
-void writeStdFile()
+void codeTable2File()
 {
     ofstream fout;
     fout.open("../stdout.txt");
@@ -581,16 +572,30 @@ int main()
     // count time wiht chrono
     auto start = chrono::steady_clock::now();
     preprocess();
+    codeTable2File();
     auto end1 = chrono::steady_clock::now();
-    cout << "Generate coe table time used: " << chrono::duration_cast<chrono::milliseconds>(end1 - start).count() << " ms" << endl;
-    cv::threshold(testFaxImg, testFaxImg, 200, 255, cv::THRESH_BINARY);
-    writeStdFile();
-    auto encodeRes = encode(testFaxImg);
-    auto decodeRes = decode(encodeRes);
-    cout << encodeIdx.size() << endl;
-    cout << decodeIdx.size() << endl;
-    cout << encodeIdx.compare(decodeIdx) << endl;
-    auto end2 = chrono::steady_clock::now();
-    cout << "encode & decode used: " << chrono::duration_cast<chrono::milliseconds>(end2 - end1).count() << " ms" << endl;
+    cout << "Generate code table time used: " << chrono::duration_cast<chrono::milliseconds>(end1 - start).count() << " ms" << endl;
+    cv::Mat img;
+    cout << "raw len:" << WIDTH * HEIGHT << endl;
+    for (int i = 1; i <= 1; i++)
+    {
+        auto end1 = chrono::steady_clock::now();
+        cout << "|>" << i << ":" << endl;
+        img = cv::imread("../img/pic" + to_string(i) + ".jpg", 0);
+        cv::threshold(img, img, 200, 255, cv::THRESH_BINARY);
+        auto rawBits = mat2Bits(img);
+        auto encodeRes = encode(img);
+        auto decodeRes = decode(encodeRes);
+        cout << "encode len: " << encodeRes.size() << endl;
+        cout << "decode len: " << decodeRes.size() << endl;
+        cout << "compress ratio: " << (double)encodeRes.size() / (double)rawBits.size() << endl;
+        cout << "decode compare to raw result: " << (std::equal(rawBits.begin(), rawBits.end(), decodeRes.begin()) ? "same" : "different") << endl;
+        // cout << encodeIdx.size() << endl;
+        // cout << decodeIdx.size() << endl;
+        // cout << encodeIdx.compare(decodeIdx) << endl;
+        auto end2 = chrono::steady_clock::now();
+        cout << "encode & decode used: " << chrono::duration_cast<chrono::milliseconds>(end2 - end1).count() << " ms" << endl;
+        cout << endl;
+    }
     return 0;
 }
